@@ -338,9 +338,10 @@ export class Contract {
     */
     @view({})
     //get the information for a specific token ID
-    nft_token({ token_id }): NFT {
+    nft_token({ token_id }: { token_id: string}): NFT {
         near.log(token_id);
         near.log(this.tokens[token_id]);
+
         return this.tokens[token_id];
     }
 
