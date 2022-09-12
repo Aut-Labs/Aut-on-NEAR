@@ -31,7 +31,7 @@ yarn-debug.log*
 yarn-error.log*
 
 node_modules
-contract/build
+contract/build/*
 contract/node_modules
 contract/neardev
 integration-tests/build

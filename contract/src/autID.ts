@@ -127,7 +127,7 @@ export class Contract {
         commitment: number,
         daoExpander: string
     }): number {
-
+        assert(near.promiseResult(0) == 'true', 'not a member of the dao');
         let lowerCase = username.toLocaleLowerCase();
 
         assert(this.tokens[this.tokenId.toString()] == undefined, 'Token already exists');
@@ -148,7 +148,7 @@ export class Contract {
         this.holderToDAOs[accountID].push(daoExpander);
         this.autIDByOwner[accountID] = this.tokenId.toString();
         this.autIDUsername[lowerCase] = accountID;
-        
+
         this.tokenId++;
 
         return this.tokenId - 1;
@@ -338,7 +338,7 @@ export class Contract {
     */
     @view({})
     //get the information for a specific token ID
-    nft_token({ token_id }: { token_id: string}): NFT {
+    nft_token({ token_id }: { token_id: string }): NFT {
         near.log(token_id);
         near.log(this.tokens[token_id]);
 
