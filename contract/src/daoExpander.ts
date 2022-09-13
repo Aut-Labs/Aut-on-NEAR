@@ -1,4 +1,8 @@
-import { NearBindgen, near, call, view, Vector, UnorderedMap, initialize, assert } from 'near-sdk-js';
+import { NearBindgen, near, call, view, Vector, UnorderedMap, initialize, assert, NearPromise, bytes } from 'near-sdk-js';
+
+const FIVE_TGAS = BigInt("50000000000000");
+const NO_DEPOSIT = BigInt(0);
+const NO_ARGS = bytes(JSON.stringify({}));
 
 interface DAOData {
   daoType: number;
@@ -18,16 +22,19 @@ class DAOExpander {
   isCoreTeam: UnorderedMap = new UnorderedMap('ict');
   daoTypes: string = '';
   autIDAddress: string = '';
+  deployer: string = '';
+  isMemberOfOriginalDAO: UnorderedMap = new UnorderedMap('isMemberOfOriginalDAO');
 
   @initialize({})
-  init({ deployer,
+  init({
     autAddr,
     daoTypes,
     daoType,
     daoAddress,
     market,
     metadata,
-    commitment }: { deployer: string, autAddr: string, daoTypes: string, daoType: number, daoAddress: string, market: number, metadata: string, commitment: number }) {
+    commitment }: { autAddr: string, daoTypes: string, daoType: number, daoAddress: string, market: number, metadata: string, commitment: number }) {
+    const deployer = near.predecessorAccountId();
     assert(daoAddress.length > 0, "Missing DAO Address");
     assert(daoTypes.length > 0, "Missing DAO Types address");
     assert(market > 0 && market < 4, "Invalid market");
@@ -36,22 +43,7 @@ class DAOExpander {
       commitment > 0 && commitment < 11,
       "Commitment should be between 1 and 10"
     );
-    assert(
-      true,
-      // IDAOTypes(_daoTypes).getMembershipCheckerAddress(
-      //   _daoType
-      // ) != address(0),
-      "Invalid membership type"
-    );
-    assert(
-      // IMembershipChecker(
-      //   IDAOTypes(_daoTypes).getMembershipCheckerAddress(
-      //     _daoType
-      //   )
-      // ).isMember(_daoAddr, _deployer),
-      true,
-      "AutID: Not a member of this DAO!"
-    );
+
     this.daoData = {
       daoType,
       daoAddress,
@@ -60,8 +52,6 @@ class DAOExpander {
       market,
       discordServer: ""
     };
-    this.isCoreTeam[deployer] = true;
-    this.coreTeam.push(deployer);
     this.daoTypes = daoTypes;
     this.autIDAddress = autAddr;
     this.members = new Vector('mems');
@@ -73,95 +63,104 @@ class DAOExpander {
     return this.members;
   }
 
-  @call({})
-  join({ newMember }: { newMember: string }): void {
-    assert(near.predecessorAccountId() == this.autIDAddress, "Only AutID can call!");
-    assert(!this.isMemberOfTheDAO[newMember], "Already a member");
-    assert(
-      this.is_member_of_original_DAO(newMember),
-      "Not a member of the DAO."
-    );
+  // @call({})
+  // join({ newMember }: { newMember: string }): void {
+  //   assert(near.predecessorAccountId() == this.autIDAddress, "Only AutID can call!");
+  //   assert(!this.isMemberOfTheDAO[newMember], "Already a member");
+  //   assert(
+  //     this.is_member_of_original_DAO(newMember),
+  //     "Not a member of the DAO."
+  //   );
 
-    this.isMemberOfTheDAO[newMember] = true;
-    this.members.push(newMember);
+  //   this.isMemberOfTheDAO[newMember] = true;
+  //   this.members.push(newMember);
 
-    //TODO: emit event
-    // emit MemberAdded();
-  }
+  //   //TODO: emit event
+  //   // emit MemberAdded();
+  // }
 
   @view({})
-  is_member_of_original_DAO(member: string): boolean {
-    // IMembershipChecker(
-    //   IDAOTypes(daoTypes).getMembershipCheckerAddress(
-    //     daoData.contractType
-    //   )
-    // ).isMember(daoData.daoAddress, member);
-    // TODO: implement
-    return true;
+  is_member_of_original_DAO(member: string): boolean | NearPromise {
+
+    const promise = NearPromise.new(this.daoTypes)
+      .functionCall("getMembershipCheckerAddress", bytes(JSON.stringify({ daoType: this.daoData.daoType })), NO_DEPOSIT, FIVE_TGAS)
+      .then(
+        NearPromise.new(near.currentAccountId())
+          .functionCall("daoTypes_callback", bytes(JSON.stringify({
+            member,
+          })), NO_DEPOSIT, FIVE_TGAS)
+      )
+
+    return promise.asReturn();
+  }
+
+  @call({ privateFunction: true })
+  daoTypes_callback({
+    member
+  }: { member: string }) {
+    assert(near.promiseResultsCount() != BigInt(0), 'dao type invalid');
+
+    const memCheckerAcc = near.promiseResult(0);
+    const promise = NearPromise.new(memCheckerAcc)
+      .functionCall("isMember", bytes(JSON.stringify({ member })), NO_DEPOSIT, FIVE_TGAS)
+      .then(
+        NearPromise.new(near.currentAccountId())
+          .functionCall("membershipChecker_callback", bytes(JSON.stringify({ member })), NO_DEPOSIT, FIVE_TGAS)
+      );
+
+    return promise.asReturn();
+  }
+
+  @call({ privateFunction: true })
+  membershipChecker_callback({
+    member }: { member: string }) {
+    if(member == this.deployer) {
+      this.coreTeam.push(this.deployer);
+      this.isCoreTeam.set(this.deployer, true);
+    }
+    return near.promiseResult(0) == 'true';
   }
 
   @view({})
   is_member_of_extended_DAO(member: string): boolean {
-    // IMembershipChecker(
-    //   IDAOTypes(daoTypes).getMembershipCheckerAddress(
-    //     daoData.contractType
-    //   )
-    // ).isMember(daoData.daoAddress, member);
-    // TODO: implement
-    return this.is_member_of_original_DAO(member) || this.isMemberOfTheDAO[member];
+    return this.isMemberOfOriginalDAO.get(member) == true || this.isMemberOfTheDAO.get(member) == true;
   }
 
 
   @view({})
   get_dao_data(): DAOData {
-    // IMembershipChecker(
-    //   IDAOTypes(daoTypes).getMembershipCheckerAddress(
-    //     daoData.contractType
-    //   )
-    // ).isMember(daoData.daoAddress, member);
-    // TODO: implement
     return this.daoData;
   }
 
-
   @call({})
   set_metadata(metadata: string): void {
-    assert(this.isCoreTeam[near.predecessorAccountId()], "Only core team!");
+    assert(this.isCoreTeam.get(near.predecessorAccountId()) == true, "Only core team!");
     assert(metadata.length > 0, "Metadata empty");
     this.daoData.metadata = metadata;
-
-    //TODO: emit event
-    // emit MetadataUriUpdated();
   }
 
   @call({})
   add_to_core_team(member: string): void {
-    assert(this.isCoreTeam[near.predecessorAccountId()], "Only core team!");
-    assert(this.isMemberOfTheDAO[member] > 0, "not a member");
-    this.isCoreTeam[member] = true;
-
-    //TODO: emit event
-    // emit CoreTeamMemberAdded(member);
+    assert(this.isCoreTeam.get(near.predecessorAccountId()) == true, "Only core team!");
+    assert(this.isMemberOfTheDAO.get(member) > 0, "not a member");
+    this.isCoreTeam.set(member, true);
   }
 
   @call({})
   remove_from_core_team(member: string): void {
-    assert(this.isCoreTeam[near.predecessorAccountId()], "Only core team!");
-    assert(this.isCoreTeam[member] > 0, "not a member");
-    this.isCoreTeam[member] = false;
+    assert(this.isCoreTeam.get(near.predecessorAccountId()) == true, "Only core team!");
+    assert(this.isMemberOfTheDAO.get(member) > 0, "not a member");
+    this.isCoreTeam.set(member, false);
 
     for (var index = 0; index < this.coreTeam.length; index++) {
-      if (this.coreTeam[index] == member) {
+      if (this.coreTeam.get(index) == member) {
         this.coreTeam.swapRemove(index);
       }
     }
-
-    //TODO: emit event
-    // emit CoreTeamMemberRemoved(member);
   }
 
   @view({})
   get_core_team_whitelist(): Vector {
-    return this.coreTeam;
+    return Vector.deserialize(this.coreTeam);
   }
 }

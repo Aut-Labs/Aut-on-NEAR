@@ -1,5 +1,4 @@
 import { NearBindgen, call, view, LookupMap, UnorderedMap, assert, initialize, near, NearPromise, bytes, Vector } from 'near-sdk-js'
-import { internalAddTokenToOwner } from './nft/internal';
 
 /// This spec can be treated like a version of the standard.
 export const NFT_METADATA_SPEC = "nft-1.0.0";
@@ -9,7 +8,6 @@ export const NFT_STANDARD_NAME = "nep171";
 
 const FIVE_TGAS = BigInt("50000000000000");
 const NO_DEPOSIT = BigInt(0);
-const NO_ARGS = bytes(JSON.stringify({}));
 interface NFT {
     token_id: string;
     owner_id: string;
@@ -29,7 +27,6 @@ export class Contract {
     tokenId: number = 1;
 
     // NFT props
-    tokensPerOwner: LookupMap = new LookupMap('tokensPerOwner');
     tokens: UnorderedMap = new UnorderedMap('tokens');
 
     // AutID props 
@@ -41,34 +38,12 @@ export class Contract {
     discordIDToAddress: UnorderedMap = new UnorderedMap('discordIDToAddress');
 
 
-    /*
-        initialization function (can only be called once).
-        this initializes the contract with metadata that was passed in and
-        the owner_id. 
-    */
-    @initialize({})
-    init({
-        metadata = {
-            spec: "nft-1.0.0",
-            name: "AutID",
-            symbol: "AUT"
-        }
-    }) {
-    }
-
-
-
     @call({})
     addDiscordIDToAutID(discordID: string) {
-        let autID: number = this.autIDByOwner[near.predecessorAccountId()];
-
-        this.autIDToDiscordID[autID] = discordID;
-        this.discordIDToAddress[discordID] = near.predecessorAccountId();
-
-        // TODO: emit event 
-        // emit DiscordIDConnectedToAutID();
+        let autID: number = this.autIDByOwner.get(near.predecessorAccountId()) as number;
+        this.autIDToDiscordID.set(autID.toString(), discordID);
+        this.discordIDToAddress.set(discordID, near.predecessorAccountId());
     }
-
 
     @call({})
     nft_mint({
@@ -91,11 +66,11 @@ export class Contract {
         );
         assert(daoExpander.length > 0, "AutID: Missing DAO Expander");
         assert(
-            this.tokensPerOwner[near.predecessorAccountId()] == undefined,
+            this.autIDByOwner.get(near.predecessorAccountId()) == undefined,
             "AutID: There is AutID already registered for this address."
         );
         assert(
-            this.autIDUsername[username] == undefined,
+            this.autIDUsername.get(username) == undefined,
             "AutID: Username already taken!"
         );
 
@@ -108,8 +83,6 @@ export class Contract {
 
         return promise.asReturn();
     }
-
-
 
     @call({ privateFunction: true })
     nft_mint_callback({
@@ -130,24 +103,32 @@ export class Contract {
         assert(near.promiseResult(0) == 'true', 'not a member of the dao');
         let lowerCase = username.toLocaleLowerCase();
 
-        assert(this.tokens[this.tokenId.toString()] == undefined, 'Token already exists');
-        this.tokens[this.tokenId.toString()] = { owner_id: accountID, token_id: this.tokenId.toString(), metadata: url } as NFT;
+        assert(this.tokens.get(this.tokenId.toString()) == undefined, 'Token already exists');
+        this.tokens.set(this.tokenId.toString(), { owner_id: accountID, token_id: this.tokenId.toString(), metadata: url } as NFT);
 
-        internalAddTokenToOwner(this, accountID, this.tokenId.toString());
+        let membershipData: UnorderedMap = this.holderToDAOMembershipData.get(accountID) as UnorderedMap;
+        if (membershipData == undefined) {
+            membershipData = new UnorderedMap('mmd' + accountID);
+        }
 
-        this.holderToDAOMembershipData[accountID] = new UnorderedMap('asdasd');
-        this.holderToDAOMembershipData[accountID][daoExpander] = {
+        membershipData.set(daoExpander, {
             daoExpanderAddress: daoExpander,
             role,
             commitment,
             isActive: true
-        };
+        } as DAOMember);
 
 
-        this.holderToDAOs[accountID] = new Vector('asd132');
-        this.holderToDAOs[accountID].push(daoExpander);
-        this.autIDByOwner[accountID] = this.tokenId.toString();
-        this.autIDUsername[lowerCase] = accountID;
+        this.holderToDAOMembershipData.set(accountID, membershipData);
+
+        let holderDAOList: Vector = this.holderToDAOs.get(accountID) as Vector;
+        if (!holderDAOList) {
+            holderDAOList = new Vector('daos' + accountID);
+        }
+        holderDAOList.push(daoExpander);
+        this.holderToDAOs.set(accountID, holderDAOList);
+        this.autIDByOwner.set(accountID, this.tokenId.toString());
+        this.autIDUsername.set(lowerCase, accountID);
 
         this.tokenId++;
 
@@ -159,71 +140,6 @@ export class Contract {
     }
 
     @call({})
-    joinDAO({
-        role,
-        commitment,
-        daoExpander
-    }: { role: number, commitment: number, daoExpander: string }
-    ) {
-        assert(role > 0 && role < 4, "Role must be between 1 and 3");
-        assert(
-            commitment > 0 && commitment < 11,
-            "AutID: Commitment should be between 1 and 10"
-        );
-        assert(daoExpander.length > 0, "AutID: Missing DAO Expander");
-        assert(
-            this.tokensPerOwner[near.predecessorAccountId()] == 1,
-            "AutID: There is no AutID registered for this address."
-        );
-
-        let currentComs = this.holderToDAOs[near.predecessorAccountId()];
-        for (let index = 0; index < currentComs.length; index++) {
-            assert(
-                currentComs[index] != daoExpander,
-                "AutID: Already a member"
-            );
-        }
-
-        // TODO: implement
-        // require(
-        //     commitment >= IDAOExpander(daoExpander).getDAOData().commitment,
-        //     "Commitment lower than the DAOs min commitment"
-        // );
-
-        let userDAOs = this.holderToDAOs[near.predecessorAccountId()];
-        let totalCommitment = 0;
-        for (let index = 0; index < userDAOs.length; index++) {
-            totalCommitment += this.holderToDAOMembershipData[near.predecessorAccountId()][
-                userDAOs[index]
-            ].commitment;
-        }
-        assert(
-            totalCommitment + commitment < 11,
-            "Maximum commitment reached"
-        );
-
-        // TODO: implement
-        // assert(
-        //     IDAOExpander(daoExpander).isMemberOfOriginalDAO(near.predecessorAccountId()),
-        //     "AutID: Not a member of this DAO!"
-        // );
-
-        this.holderToDAOMembershipData[near.predecessorAccountId()][daoExpander] = {
-            daoExpanderAddress: daoExpander,
-            role,
-            commitment,
-            isActive: true
-        } as DAOMember;
-        this.holderToDAOs[near.predecessorAccountId()].push(daoExpander);
-
-        NearPromise.new(daoExpander)
-            .functionCall("join", bytes(JSON.stringify({ newMember: near.predecessorAccountId() })), NO_DEPOSIT, FIVE_TGAS);
-
-        // TODO: emit event
-        // emit DAOJoined(daoExpander, near.predecessorAccountId());
-    }
-
-    @call({})
     withdraw({ daoExpander }: { daoExpander: string }) {
         assert(
             this.holderToDAOMembershipData[near.predecessorAccountId()][daoExpander].isActive,
@@ -231,9 +147,6 @@ export class Contract {
         );
         this.holderToDAOMembershipData[near.predecessorAccountId()][daoExpander].isActive = false;
         this.holderToDAOMembershipData[near.predecessorAccountId()][daoExpander].commitment = 0;
-
-        //TODO: emit event
-        // emit DAOWithdrown(daoExpander, msg.sender);
     }
 
 
@@ -248,13 +161,6 @@ export class Contract {
             newCommitment > 0 && newCommitment < 11,
             "AutID: Commitment should be between 1 and 10"
         );
-
-
-        // TODO: find a better way
-        // assert(
-        //     newCommitment >= IDAOExpander(daoExpander).getDAOData().commitment,
-        //     "Commitment lower than the DAOs min commitment"
-        // );
 
         let userDAOs = this.holderToDAOs[near.predecessorAccountId()];
         let totalCommitment = 0;
@@ -272,18 +178,14 @@ export class Contract {
         );
         this.holderToDAOMembershipData[near.predecessorAccountId()][daoExpander]
             .commitment = newCommitment;
-
-        // TODO: emit event
-        // emit CommitmentUpdated(daoExpander, near.predecessorAccountId(), newCommitment);
     }
 
     @call({})
     setMetadataUri({ metadataUri }: { metadataUri: string }) {
-        assert(this.tokensPerOwner[near.predecessorAccountId()] == 1, "AutID: Doesn't have an AutID.");
-        let tokenId = this.autIDByOwner[near.predecessorAccountId()];
-        this.tokens[tokenId].metadata = metadataUri;
-        // TODO: emit event
-        // emit MetadataUriSet(tokenId, metadataUri);
+        let tokenId = this.autIDByOwner.get(near.predecessorAccountId()) as number;
+        const token: NFT = this.tokens[tokenId];
+        token.metadata = metadataUri;
+        this.tokens.set(tokenId.toString(), token);
     }
 
     /// @notice gets all communities the AutID holder is a member of
@@ -291,45 +193,41 @@ export class Contract {
     /// @return daos dao expander addresses that the aut holder is a part of
     @view({})
     getHolderDAOs({ autIDHolder }: { autIDHolder: string }): Vector {
-        assert(this.tokensPerOwner[autIDHolder] == 1, "AutID: Doesn't have an AutID.");
-        return this.holderToDAOs[autIDHolder];
+        assert(this.autIDByOwner.get(autIDHolder) != undefined, "AutID: Doesn't have an AutID.");
+        return Vector.deserialize(this.holderToDAOs.get(autIDHolder) as Vector);
     }
-
 
     @view({})
     getMembershipData({ autIDHolder, daoExpander }: { autIDHolder: string, daoExpander: string }): DAOMember {
-        return this.holderToDAOMembershipData[autIDHolder][daoExpander];
+        const memData = UnorderedMap.deserialize(this.holderToDAOMembershipData.get(autIDHolder) as UnorderedMap);
+        return memData.get(daoExpander) as DAOMember;
     }
 
     @view({})
     getAutIDByOwner({ autIDOwner }: { autIDOwner: string }) {
-        assert(
-            this.tokensPerOwner[autIDOwner] == 1,
-            "AutID: The AutID owner is invalid."
-        );
-        return this.autIDByOwner[autIDOwner];
+        return this.autIDByOwner.get(autIDOwner);
     }
 
     @view({})
     getTotalCommitment({ autIDHolder }: { autIDHolder: string }): number {
         assert(
-            this.tokensPerOwner[autIDHolder] == 1,
+            this.autIDByOwner.get(autIDHolder) != undefined,
             "AutID: The AutID owner is invalid."
         );
-        let userDAOs = this.holderToDAOs[autIDHolder];
+        let userDAOs = this.holderToDAOs.get(autIDHolder) as Vector;
 
         let totalCommitment = 0;
         for (let index = 0; index < userDAOs.length; index++) {
-            totalCommitment += this.holderToDAOMembershipData[autIDHolder][
+            totalCommitment += ((this.holderToDAOMembershipData.get(autIDHolder) as UnorderedMap).get(
                 userDAOs[index]
-            ].commitment;
+            ) as DAOMember).commitment;
         }
         return totalCommitment;
     }
 
     @view({})
     getAutIDHolderByUsername({ username }: { username: string }): string {
-        return this.autIDUsername[username.toLowerCase()];
+        return this.autIDUsername.get(username.toLowerCase()) as string;
     }
 
 
@@ -339,10 +237,7 @@ export class Contract {
     @view({})
     //get the information for a specific token ID
     nft_token({ token_id }: { token_id: string }): NFT {
-        near.log(token_id);
-        near.log(this.tokens[token_id]);
-
-        return this.tokens[token_id];
+        return this.tokens.get(token_id) as NFT;
     }
 
     @call({})

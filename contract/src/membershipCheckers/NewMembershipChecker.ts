@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: MIT
 import { NearBindgen, near, call, view, Vector, UnorderedMap, initialize, assert } from 'near-sdk-js';
-import "./IMembershipChecker";
+import { IMembershipChecker } from "./IMembershipChecker";
 
 /// @title NewMembershipChecker
 /// @notice Implementation of IMembershipChecker for your new DAO standard
