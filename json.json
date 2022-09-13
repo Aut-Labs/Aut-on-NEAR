@@ -1,0 +1,10 @@
+{
+  "deployer": "dev-1663079246584-29139238810028",
+  "autAddr": "autID.accountId",
+  "daoTypes": "daoTypes.accountId",
+  "daoType": 1,
+  "daoAddress": "daoExpander.accountId",
+  "market": 1,
+  "metadata": "someUrl",
+  "commitment": 1
+}

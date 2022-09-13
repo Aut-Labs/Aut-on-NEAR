@@ -103,4 +103,20 @@ On Windows, if you're seeing an error containing `EPERM` it may be related to sp
 
 
 Deploy on dev: 
+AutID
 `local_near dev-deploy --wasmFile ./build/autID.wasm`
+SputnikDAO Factory
+`local_near dev-deploy --wasmFile ./wasm-imports/sputnikdao_factory2.wasm`
+```
+local_near call dev-1663079246584-29139238810028 init '{
+  "deployer": "dev-1663079246584-29139238810028",
+  "autAddr": "autID.accountId",
+  "daoTypes": "daoTypes.accountId",
+  "daoType": 1,
+  "daoAddress": "daoExpander.accountId",
+  "market": 1,
+  "metadata": "someUrl",
+  "commitment": 1
+}
+' --accountId test.near
+```

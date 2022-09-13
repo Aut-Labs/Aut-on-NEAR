@@ -79,18 +79,23 @@ test("mints a new AutID", async (t) => {
     daoExpander: daoExpander.accountId
   }, { gas: "200000000000000" }) as number;
 
-  console.log(tokenID);
-
-  // const token = await autID.view('nft_token', { token_id: tokenID.toString() }) as any;
-  // console.log('token', token);
-  // t.is(token.metadata, someUrl);
-  // const tID = await autID.view('getAutIDHolderByUsername', { username: 'migrenaa' });
-  // t.is(tID, tokenID);
+  const token = await autID.view('nft_token', { token_id: tokenID.toString() }) as any;
+  t.is(token.metadata, someUrl);
+  const acc = await autID.view('getAutIDHolderByUsername', { username: 'migrenaa' });
+  t.is(acc, autIDHolder1.accountId);
   const byOwner = await autID.view('getAutIDByOwner', { autIDOwner: autIDHolder1.accountId });
-  t.is(byOwner, tokenID);
-
-  const memData = await autID.view('getMembershipData', {autIDHolder: autIDHolder1.accountId, daoExpander: daoExpander.accountId }) as any;
+  t.is(byOwner, tokenID.toString());
+  const memData = await autID.view('getMembershipData', { autIDHolder: autIDHolder1.accountId, daoExpander: daoExpander.accountId }) as any;
   t.is(memData.daoExpanderAddress, daoExpander.accountId);
   t.is(memData.role, 1);
   t.is(memData.commitment, 1);
+  const hDAOs = await autID.view('getHolderDAOs', { autIDHolder: autIDHolder1.accountId }) as any;
+  t.is(hDAOs[0], daoExpander.accountId);
+  t.is(hDAOs.length, 1);
+
+  const com = await autID.view('getTotalCommitment', { autIDHolder: autIDHolder1.accountId });
+  t.is(com, 1);
 });
+
+
+

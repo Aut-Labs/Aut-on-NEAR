@@ -16,3 +16,4 @@
 
     ```
 if the property is owner: string only, after init, the value of this.owner is undefined, although it's set in the init function. 
+7. Implement "[]" operators for the maps/dictionaries
