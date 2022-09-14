@@ -59,6 +59,32 @@ let nestedVal = this.mapOfMap.[key][nestedKey]
         this.prop = 'initial value'
     }
     ```
+#3. Cross chain calls
+* Compared to Solidity, this is the biggest pain in the NEAR ecosystem, I believe it's good to add more examples and write more docs with parallel cross-conract calls, linear cross-contract calls with more callbacks, maybe on how to reuse callbacks etc. 
+* Explain the difference between 
+```
+    const promise = NearPromise.new(account)
+    .functionCall("get_greeting", NO_ARGS, NO_DEPOSIT, FIVE_TGAS)
+    .and(
+      NearPromise.new(account)
+      .functionCall("get_greeting", NO_ARGS, NO_DEPOSIT, FIVE_TGAS)
+    )
+    .then(
+      NearPromise.new(near.currentAccountId())
+      .functionCall("query_greeting_callback", NO_ARGS, NO_DEPOSIT, FIVE_TGAS)
+    )
+    
+```
+```
+    const promise = NearPromise.new(account)
+    .functionCall("get_greeting", NO_ARGS, NO_DEPOSIT, FIVE_TGAS)
+    .functionCall("get_greeting", NO_ARGS, NO_DEPOSIT, FIVE_TGAS)
+    .then(
+      NearPromise.new(near.currentAccountId())
+      .functionCall("query_greeting_callback", NO_ARGS, NO_DEPOSIT, FIVE_TGAS)
+    )
+    
+```
 
 #4. One little bug
 `return near.promiseResult(1)`, returns '"result string"', there are quotes inside the string.
