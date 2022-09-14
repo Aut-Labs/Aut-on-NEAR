@@ -55,43 +55,28 @@ class DAOExpander {
     this.daoTypes = daoTypes;
     this.autIDAddress = autAddr;
     this.members = new Vector('mems');
+    this.deployer = deployer;
   }
 
-
   @view({})
-  get_members(): Vector {
+  getMembers(): Vector {
     return this.members;
   }
 
-  // @call({})
-  // join({ newMember }: { newMember: string }): void {
-  //   assert(near.predecessorAccountId() == this.autIDAddress, "Only AutID can call!");
-  //   assert(!this.isMemberOfTheDAO[newMember], "Already a member");
-  //   assert(
-  //     this.is_member_of_original_DAO(newMember),
-  //     "Not a member of the DAO."
-  //   );
-
-  //   this.isMemberOfTheDAO[newMember] = true;
-  //   this.members.push(newMember);
-
-  //   //TODO: emit event
-  //   // emit MemberAdded();
-  // }
-
   @view({})
-  is_member_of_original_DAO(member: string): boolean | NearPromise {
+  isMemberOfTheOriginalDAO(member: string): boolean | NearPromise {
 
-    const promise = NearPromise.new(this.daoTypes)
-      .functionCall("getMembershipCheckerAddress", bytes(JSON.stringify({ daoType: this.daoData.daoType })), NO_DEPOSIT, FIVE_TGAS)
-      .then(
-        NearPromise.new(near.currentAccountId())
-          .functionCall("daoTypes_callback", bytes(JSON.stringify({
-            member,
-          })), NO_DEPOSIT, FIVE_TGAS)
-      )
+    // const promise = NearPromise.new(this.daoTypes)
+    //   .functionCall("getMembershipCheckerAddress", bytes(JSON.stringify({ daoType: this.daoData.daoType })), NO_DEPOSIT, FIVE_TGAS)
+    //   .then(
+    //     NearPromise.new(near.currentAccountId())
+    //       .functionCall("daoTypes_callback", bytes(JSON.stringify({
+    //         member,
+    //       })), NO_DEPOSIT, FIVE_TGAS)
+    //   )
 
-    return promise.asReturn();
+    // return promise.asReturn();
+    return true;
   }
 
   @call({ privateFunction: true })
@@ -122,32 +107,31 @@ class DAOExpander {
   }
 
   @view({})
-  is_member_of_extended_DAO(member: string): boolean {
+  isMemberOfExtendedDAO(member: string): boolean {
     return this.isMemberOfOriginalDAO.get(member) == true || this.isMemberOfTheDAO.get(member) == true;
   }
 
-
   @view({})
-  get_dao_data(): DAOData {
+  getDAOData(): DAOData {
     return this.daoData;
   }
 
   @call({})
-  set_metadata(metadata: string): void {
+  setMetadata(metadata: string): void {
     assert(this.isCoreTeam.get(near.predecessorAccountId()) == true, "Only core team!");
     assert(metadata.length > 0, "Metadata empty");
     this.daoData.metadata = metadata;
   }
 
   @call({})
-  add_to_core_team(member: string): void {
+  addToCoreTeam(member: string): void {
     assert(this.isCoreTeam.get(near.predecessorAccountId()) == true, "Only core team!");
     assert(this.isMemberOfTheDAO.get(member) > 0, "not a member");
     this.isCoreTeam.set(member, true);
   }
 
   @call({})
-  remove_from_core_team(member: string): void {
+  removeFromCoreTeam(member: string): void {
     assert(this.isCoreTeam.get(near.predecessorAccountId()) == true, "Only core team!");
     assert(this.isMemberOfTheDAO.get(member) > 0, "not a member");
     this.isCoreTeam.set(member, false);
@@ -160,7 +144,7 @@ class DAOExpander {
   }
 
   @view({})
-  get_core_team_whitelist(): Vector {
+  getCoreTeamWhitelist(): Vector {
     return Vector.deserialize(this.coreTeam);
   }
 }

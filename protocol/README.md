@@ -81,7 +81,7 @@ Step 3: set contract name in your frontend code
 
 Modify the line in `src/config.js` that sets the account name of the contract. Set it to the account id you used above.
 
-    const CONTRACT_NAME = process.env.CONTRACT_NAME || 'near-blank-project.YOUR-NAME.testnet'
+const CONTRACT_NAME = process.env.CONTRACT_NAME || 'near-blank-project.YOUR-NAME.testnet'
 
 
 
@@ -100,23 +100,50 @@ On Windows, if you're seeing an error containing `EPERM` it may be related to sp
   [gh-pages]: https://github.com/tschaub/gh-pages
 
 
-
-
 Deploy on dev: 
 AutID
+near call dao-types.migrenaa.testnet init '{}' --accountId dao-types.migrenaa.testnet
 `local_near dev-deploy --wasmFile ./build/autID.wasm`
+`local_near call dev-1663107004885-84639967254186 init '{}' --accountId dev-1663107004885-84639967254186`
 SputnikDAO Factory
 `local_near dev-deploy --wasmFile ./wasm-imports/sputnikdao_factory2.wasm`
+`local_near dev-deploy <factory-account> --wasmFile=<sputnikdao-factory> --accountId <your-account>`
+`local_near call <factory-account> new --accountId  <your-account> --gas 100000000000000`
+# 3. Define a council and create DAO
 ```
-local_near call dev-1663079246584-29139238810028 init '{
-  "deployer": "dev-1663079246584-29139238810028",
-  "autAddr": "autID.accountId",
-  "daoTypes": "daoTypes.accountId",
+export COUNCIL='["<council-member-1>", "<council-member-2>"]'
+export ARGS=`echo '{"config": {"name": "<name>", "purpose": "<purpose>", "metadata":"<metadata>"}, "policy": '$COUNCIL'}' | base64`
+local_near call  <factory-account> create "{\"name\": \"<name>\", \"args\": \"$ARGS\"}" --accountId <your-account> --amount 10 --gas 150000000000000
+```
+
+```
+near call dao-expander-profit-sharing.migrenaa.testnet init '{
+  "autAddr": "autid.migrenaa.testnet",
+  "daoTypes": "dao-types.migrenaa.testnet",
   "daoType": 1,
-  "daoAddress": "daoExpander.accountId",
+  "daoAddress": "profit-sharing.sputnikv2.testnet",
   "market": 1,
-  "metadata": "someUrl",
+  "metadata": "ipfs://bafkreidj72mcl64ok43gonwfruprktsvpj7ueazy6er3wju2uu26fjphj4",
   "commitment": 1
 }
-' --accountId test.near
+' --accountId dao-expander-profit-sharing.migrenaa.testnet
 ```
+```
+near call autid.migrenaa.testnet nft_mint '{
+    "username":"gabriella",
+    "url":"ipfs://bafyreidmvdw6l6w6j6im32eicoihq4di54wyydq6aimwhgwag263pifwx4/metadata.json",
+    "role":1,
+    "commitment":5,
+    "daoExpander": "dao-expander-profit-sharing.migrenaa.testnet"
+}' --accountId autid.migrenaa.testnet
+```
+Run local env 
+kurtosis clean
+~/launch-local-near-cluster.sh
+
+
+Testnet
+
+autID: autid.migrenaa.testnet
+DAOTypes: dao-types.migrenaa.testnet
+daoExpander: dao-expander-profit-sharing.migrenaa.testnet

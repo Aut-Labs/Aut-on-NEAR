@@ -1,4 +1,4 @@
-import { NearBindgen, call, view, LookupMap, UnorderedMap, assert, initialize, near, NearPromise, bytes, Vector } from 'near-sdk-js'
+import { NearBindgen, call, view, UnorderedMap, assert, near, NearPromise, bytes, Vector, initialize } from 'near-sdk-js'
 
 /// This spec can be treated like a version of the standard.
 export const NFT_METADATA_SPEC = "nft-1.0.0";
@@ -38,6 +38,21 @@ export class Contract {
     discordIDToAddress: UnorderedMap = new UnorderedMap('discordIDToAddress');
 
 
+    /*
+        initialization function (can only be called once).
+        this initializes the contract with metadata that was passed in and
+        the owner_id. 
+    */
+    @initialize({})
+    init({
+        metadata = {
+            spec: "nft-1.0.0",
+            name: "AutID",
+            symbol: "AUT"
+        }
+    }) {
+    }
+
     @call({})
     addDiscordIDToAutID(discordID: string) {
         let autID: number = this.autIDByOwner.get(near.predecessorAccountId()) as number;
@@ -75,7 +90,7 @@ export class Contract {
         );
 
         const promise = NearPromise.new(daoExpander)
-            .functionCall("is_member_of_original_DAO", bytes(JSON.stringify({ member: near.predecessorAccountId() })), NO_DEPOSIT, FIVE_TGAS)
+            .functionCall("isMemberOfTheOriginalDAO", bytes(JSON.stringify({ member: near.predecessorAccountId() })), NO_DEPOSIT, FIVE_TGAS)
             .then(
                 NearPromise.new(near.currentAccountId())
                     .functionCall("nft_mint_callback", bytes(JSON.stringify({ accountID: near.predecessorAccountId(), username, url, role, commitment, daoExpander })), NO_DEPOSIT, FIVE_TGAS)
@@ -214,11 +229,19 @@ export class Contract {
             this.autIDByOwner.get(autIDHolder) != undefined,
             "AutID: The AutID owner is invalid."
         );
-        let userDAOs = this.holderToDAOs.get(autIDHolder) as Vector;
-
+        
+        let userDAOs = Vector.deserialize(this.holderToDAOs.get(autIDHolder) as Vector) as Vector;
         let totalCommitment = 0;
+        near.log(userDAOs);
+
         for (let index = 0; index < userDAOs.length; index++) {
-            totalCommitment += ((this.holderToDAOMembershipData.get(autIDHolder) as UnorderedMap).get(
+
+
+            let membershipData = UnorderedMap.deserialize(this.holderToDAOMembershipData.get(autIDHolder) as UnorderedMap) as UnorderedMap;
+            
+            
+            near.log(userDAOs[index]);
+            totalCommitment += (membershipData.get(
                 userDAOs[index]
             ) as DAOMember).commitment;
         }
