@@ -100,34 +100,47 @@ On Windows, if you're seeing an error containing `EPERM` it may be related to sp
   [gh-pages]: https://github.com/tschaub/gh-pages
 
 
-Deploy on dev: 
-AutID
-near call dao-types.migrenaa.testnet init '{}' --accountId dao-types.migrenaa.testnet
-`local_near dev-deploy --wasmFile ./build/autID.wasm`
-`local_near call dev-1663107004885-84639967254186 init '{}' --accountId dev-1663107004885-84639967254186`
+# Deploy on dev: 
+===============
+
+1. AutID
+`cd /protocol/contracts/build`
+`near deploy --accountId autid.migrenaa.testnet --wasmFile ./autID.wasm`
+`near call autid.migrenaa.testnet init '{}' --accountId autid.migrenaa.testnet`
+
+2. DAO Types
+`cd /protocol/contracts/build`
+`near deploy --accountId dao-types.migrenaa.testnet --wasmFile ./daoTypes.wasm`
+`near call dao-types.migrenaa.testnet init '{}' --accountId dao-types.migrenaa.testnet`
+
+
+2. Deploy an expander
+`cd /protocol/contracts/build`
+`near deploy --accountId dao-exp-profit-sharing.migrenaa.testnet --wasmFile ./daoExpander.wasm`
+```
+near call dao-exp-profit-sharing.migrenaa.testnet init '{
+  "autAddr": "autid.migrenaa.testnet",
+  "daoTypes": "dao-types.migrenaa.testnet",
+  "daoType": 1,
+  "daoAddress": "profit-sharing.sputnikv2.testnet",
+  "market": 3,
+  "metadata": "ipfs://bafkreib5fownnqunhrxlnn267obynjj6ydrgsmyljsfwh4bu2q4ziyjphe",
+  "commitment": 3
+}
+' --accountId dao-exp-profit-sharing.migrenaa.testnet
+```
+
 SputnikDAO Factory
 `local_near dev-deploy --wasmFile ./wasm-imports/sputnikdao_factory2.wasm`
 `local_near dev-deploy <factory-account> --wasmFile=<sputnikdao-factory> --accountId <your-account>`
 `local_near call <factory-account> new --accountId  <your-account> --gas 100000000000000`
-# 3. Define a council and create DAO
 ```
 export COUNCIL='["<council-member-1>", "<council-member-2>"]'
 export ARGS=`echo '{"config": {"name": "<name>", "purpose": "<purpose>", "metadata":"<metadata>"}, "policy": '$COUNCIL'}' | base64`
 local_near call  <factory-account> create "{\"name\": \"<name>\", \"args\": \"$ARGS\"}" --accountId <your-account> --amount 10 --gas 150000000000000
 ```
+# 3. Mint a new AutID
 
-```
-near call dao-expander-profit-sharing.migrenaa.testnet init '{
-  "autAddr": "autid.migrenaa.testnet",
-  "daoTypes": "dao-types.migrenaa.testnet",
-  "daoType": 1,
-  "daoAddress": "profit-sharing.sputnikv2.testnet",
-  "market": 1,
-  "metadata": "ipfs://bafkreidj72mcl64ok43gonwfruprktsvpj7ueazy6er3wju2uu26fjphj4",
-  "commitment": 1
-}
-' --accountId dao-expander-profit-sharing.migrenaa.testnet
-```
 ```
 near call autid.migrenaa.testnet nft_mint '{
     "username":"gabriella",
@@ -137,13 +150,14 @@ near call autid.migrenaa.testnet nft_mint '{
     "daoExpander": "dao-expander-profit-sharing.migrenaa.testnet"
 }' --accountId autid.migrenaa.testnet
 ```
-Run local env 
+
+# Run local env 
 kurtosis clean
 ~/launch-local-near-cluster.sh
 
 
-Testnet
+# Testnet deployments:
 
 autID: autid.migrenaa.testnet
 DAOTypes: dao-types.migrenaa.testnet
-daoExpander: dao-expander-profit-sharing.migrenaa.testnet
+daoExpander: dao-exp-profit-sharing.migrenaa.testnet
